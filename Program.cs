@@ -14,7 +14,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 if (builder.Environment.IsProduction() || (connectionString != null && connectionString.Contains(".\\SQLEXPRESS") && !OperatingSystem.IsWindows()))
 {
-    connectionString = "Server=db71188.databaseasp.net;Database=db71188;User Id=db71188;Password=H!n4et7#2a+A;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True;";
+    connectionString = "Server=db71188.databaseasp.net;Database=db71188;User Id=db71188;Password=H!n4eT7#2a+A;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True;";
 }
 else if (string.IsNullOrWhiteSpace(connectionString))
 {

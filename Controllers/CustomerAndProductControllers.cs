@@ -26,7 +26,9 @@ public class HealthController : ControllerBase
         string? error = null;
         try
         {
-            dbConnected = await _db.Database.CanConnectAsync();
+            await _db.Database.OpenConnectionAsync();
+            dbConnected = true;
+            await _db.Database.CloseConnectionAsync();
         }
         catch (Exception ex)
         {
