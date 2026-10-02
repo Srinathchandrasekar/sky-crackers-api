@@ -380,69 +380,85 @@ public class CustomersController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var rawPhone = dto.MobileNumber?.Trim() ?? string.Empty;
-        var digits = new string(rawPhone.Where(char.IsDigit).ToArray());
-        var phone10 = digits.Length >= 10 ? digits[^10..] : digits;
-
-        var customer = await _db.Customers
-            .FirstOrDefaultAsync(c => c.IsActive && (
-                c.MobileNumber == rawPhone ||
-                (!string.IsNullOrEmpty(phone10) && (c.MobileNumber == phone10 || c.MobileNumber.EndsWith(phone10) || (phone10.Length >= 6 && c.MobileNumber.Contains(phone10))))
-            ));
-
-        if (customer == null)
+        try
         {
+            var rawPhone = dto.MobileNumber?.Trim() ?? string.Empty;
+            var digits = new string(rawPhone.Where(char.IsDigit).ToArray());
+            var phone10 = digits.Length >= 10 ? digits[^10..] : digits;
+
+            var customer = await _db.Customers
+                .FirstOrDefaultAsync(c => c.IsActive && (
+                    c.MobileNumber == rawPhone ||
+                    (!string.IsNullOrEmpty(phone10) && (c.MobileNumber == phone10 || c.MobileNumber.EndsWith(phone10) || (phone10.Length >= 6 && c.MobileNumber.Contains(phone10))))
+                ));
+
+            if (customer == null)
+            {
+                return Ok(new CustomerLookupResponseDto
+                {
+                    Exists = false,
+                    Message = "No existing profile found. Please register as a new customer."
+                });
+            }
+
+            // Fetch past orders safely
+            List<OrderResponseDto> pastOrders = new();
+            try
+            {
+                var rawPastOrders = await _db.Orders
+                    .Include(o => o.Items)
+                    .Where(o => o.CustomerId == customer.CustomerId)
+                    .OrderByDescending(o => o.CreatedAt)
+                    .Take(5)
+                    .ToListAsync();
+
+                pastOrders = rawPastOrders.Select(o => new OrderResponseDto
+                {
+                    OrderId = o.OrderId,
+                    OrderNumber = o.OrderNumber,
+                    CustomerId = o.CustomerId,
+                    CustomerName = o.CustomerName,
+                    CustomerPhone = o.CustomerPhone,
+                    DeliveryAddress = o.DeliveryAddress,
+                    SubTotal = o.SubTotal,
+                    DiscountAmount = o.DiscountAmount,
+                    DeliveryFee = o.DeliveryFee,
+                    TotalAmount = o.TotalAmount,
+                    PaymentMethod = o.PaymentMethod,
+                    PaymentStatus = o.PaymentStatus,
+                    OrderStatus = o.OrderStatus,
+                    CreatedAt = o.CreatedAt,
+                    Items = (o.Items ?? new List<OrderItem>()).Select(i => new OrderItemResponseDto
+                    {
+                        OrderItemId = i.OrderItemId,
+                        OrderId = i.OrderId,
+                        CustomerId = i.CustomerId,
+                        ProductId = i.ProductId,
+                        ProductName = i.ProductName,
+                        Quantity = i.Quantity,
+                        UnitPrice = i.UnitPrice,
+                        TotalPrice = i.TotalPrice
+                    }).ToList()
+                }).ToList();
+            }
+            catch
+            {
+                // If orders table query fails, customer lookup still succeeds with customer details!
+                pastOrders = new List<OrderResponseDto>();
+            }
+
             return Ok(new CustomerLookupResponseDto
             {
-                Exists = false,
-                Message = "No existing profile found. Please register as a new customer."
+                Exists = true,
+                Customer = MapToDto(customer),
+                PreviousOrders = pastOrders,
+                Message = $"Account found for {customer.CustomerName}."
             });
         }
-
-        // Fetch past orders for this customer
-        var rawPastOrders = await _db.Orders
-            .Include(o => o.Items)
-            .Where(o => o.CustomerId == customer.CustomerId)
-            .OrderByDescending(o => o.CreatedAt)
-            .Take(5)
-            .ToListAsync();
-
-        var pastOrders = rawPastOrders.Select(o => new OrderResponseDto
+        catch (Exception ex)
         {
-            OrderId = o.OrderId,
-            OrderNumber = o.OrderNumber,
-            CustomerId = o.CustomerId,
-            CustomerName = o.CustomerName,
-            CustomerPhone = o.CustomerPhone,
-            DeliveryAddress = o.DeliveryAddress,
-            SubTotal = o.SubTotal,
-            DiscountAmount = o.DiscountAmount,
-            DeliveryFee = o.DeliveryFee,
-            TotalAmount = o.TotalAmount,
-            PaymentMethod = o.PaymentMethod,
-            PaymentStatus = o.PaymentStatus,
-            OrderStatus = o.OrderStatus,
-            CreatedAt = o.CreatedAt,
-            Items = o.Items.Select(i => new OrderItemResponseDto
-            {
-                OrderItemId = i.OrderItemId,
-                OrderId = i.OrderId,
-                CustomerId = i.CustomerId,
-                ProductId = i.ProductId,
-                ProductName = i.ProductName,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                TotalPrice = i.TotalPrice
-            }).ToList()
-        }).ToList();
-
-        return Ok(new CustomerLookupResponseDto
-        {
-            Exists = true,
-            Customer = MapToDto(customer),
-            PreviousOrders = pastOrders,
-            Message = $"Account found for {customer.CustomerName}."
-        });
+            return StatusCode(500, new { success = false, message = "Lookup failed.", error = ex.Message });
+        }
     }
 
     /// <summary>
