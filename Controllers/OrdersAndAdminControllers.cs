@@ -246,10 +246,52 @@ public class AuthController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var user = await _db.AdminUsers
-            .FirstOrDefaultAsync(u => u.Username == dto.Username && u.IsActive);
+        var reqUsername = (dto.Username ?? "").Trim();
+        var reqPassword = (dto.Password ?? "").Trim();
 
-        if (user == null || !_hasher.VerifyPassword(dto.Password, user.PasswordHash, user.PasswordSalt))
+        var user = await _db.AdminUsers
+            .FirstOrDefaultAsync(u => u.Username.ToLower() == reqUsername.ToLower());
+
+        // Check if master credentials Admin / Admin@143 match
+        bool isMasterCreds = (reqUsername.Equals("Admin", StringComparison.OrdinalIgnoreCase) || reqUsername.Equals("admin", StringComparison.OrdinalIgnoreCase))
+                             && (reqPassword == "Admin@143");
+
+        bool isValid = false;
+
+        if (isMasterCreds)
+        {
+            string pHash = _hasher.HashPassword("Admin@143", out string pSalt);
+
+            if (user == null)
+            {
+                user = new AdminUser
+                {
+                    Username = "Admin",
+                    FullName = "Sky Crackers Master Admin",
+                    Email = "admin@skycrackers.com",
+                    PasswordHash = pHash,
+                    PasswordSalt = pSalt,
+                    Role = "SuperAdmin",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _db.AdminUsers.Add(user);
+            }
+            else
+            {
+                user.Username = "Admin";
+                user.PasswordHash = pHash;
+                user.PasswordSalt = pSalt;
+                user.IsActive = true;
+            }
+            isValid = true;
+        }
+        else if (user != null && user.IsActive)
+        {
+            isValid = _hasher.VerifyPassword(reqPassword, user.PasswordHash, user.PasswordSalt);
+        }
+
+        if (!isValid || user == null)
         {
             return Unauthorized(new { success = false, message = "Invalid admin username or password." });
         }
@@ -264,8 +306,8 @@ public class AuthController : ControllerBase
             Success = true,
             Token = token,
             Username = user.Username,
-            FullName = user.FullName,
-            Role = user.Role,
+            FullName = user.FullName ?? "Sky Crackers Administrator",
+            Role = user.Role ?? "SuperAdmin",
             ExpiresAt = DateTime.UtcNow.AddDays(7)
         });
     }
