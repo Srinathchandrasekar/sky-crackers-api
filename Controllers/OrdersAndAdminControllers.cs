@@ -61,7 +61,6 @@ public class OrdersController : ControllerBase
 
                 orderItems.Add(new OrderItem
                 {
-                    CustomerId = customer.CustomerId,
                     ProductId = product.ProductId,
                     ProductName = product.EnglishName,
                     Quantity = itemDto.Quantity,
@@ -217,7 +216,7 @@ public class OrdersController : ControllerBase
         {
             OrderItemId = i.OrderItemId,
             OrderId = i.OrderId,
-            CustomerId = i.CustomerId,
+            CustomerId = o.CustomerId,
             ProductId = i.ProductId,
             ProductName = i.ProductName,
             Quantity = i.Quantity,

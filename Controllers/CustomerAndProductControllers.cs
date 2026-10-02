@@ -432,7 +432,7 @@ public class CustomersController : ControllerBase
                     {
                         OrderItemId = i.OrderItemId,
                         OrderId = i.OrderId,
-                        CustomerId = i.CustomerId,
+                        CustomerId = o.CustomerId,
                         ProductId = i.ProductId,
                         ProductName = i.ProductName,
                         Quantity = i.Quantity,
