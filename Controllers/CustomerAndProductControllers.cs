@@ -23,18 +23,28 @@ public class HealthController : ControllerBase
     public async Task<IActionResult> GetHealth()
     {
         bool dbConnected = false;
+        string? error = null;
         try
         {
             dbConnected = await _db.Database.CanConnectAsync();
         }
-        catch { }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+
+        var conn = _db.Database.GetConnectionString();
+        var safeConn = conn != null && conn.Contains("Password=")
+            ? System.Text.RegularExpressions.Regex.Replace(conn, @"Password=[^;]+", "Password=***")
+            : conn;
 
         return Ok(new
         {
             status = "healthy",
             service = "Sky Fire Crackers ASP.NET Core API",
             timestamp = DateTime.UtcNow,
-            database = dbConnected ? "Connected (Microsoft SQL Server SkyCrackersDB)" : "Disconnected"
+            database = dbConnected ? "Connected" : $"Disconnected: {error}",
+            connection = safeConn
         });
     }
 }

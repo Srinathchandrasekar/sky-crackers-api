@@ -10,8 +10,16 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Add Database Context using Microsoft SQL Server provider
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Server=.\\SQLEXPRESS;Database=SkyCrackersDB;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (builder.Environment.IsProduction() || (connectionString != null && connectionString.Contains(".\\SQLEXPRESS") && !OperatingSystem.IsWindows()))
+{
+    connectionString = "Server=db71188.databaseasp.net;Database=db71188;User Id=db71188;Password=H!n4et7#2a+A;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True;";
+}
+else if (string.IsNullOrWhiteSpace(connectionString))
+{
+    connectionString = "Server=.\\SQLEXPRESS;Database=SkyCrackersDB;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+}
 
 builder.Services.AddDbContext<SkyCrackersDbContext>(options =>
     options.UseSqlServer(connectionString));
