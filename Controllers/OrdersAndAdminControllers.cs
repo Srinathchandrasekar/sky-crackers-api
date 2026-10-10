@@ -195,6 +195,19 @@ public class OrdersController : ControllerBase
         return Ok(new { success = true, message = $"Order status updated to {dto.OrderStatus}.", data = MapOrderResponse(order) });
     }
 
+    /// <summary>
+    /// POST /api/orders/reset-all-data - Wipes all test bookings, line items, and customer test records
+    /// </summary>
+    [HttpPost("reset-all-data")]
+    public async Task<IActionResult> ResetAllData()
+    {
+        _db.OrderItems.RemoveRange(_db.OrderItems);
+        _db.Orders.RemoveRange(_db.Orders);
+        _db.Customers.RemoveRange(_db.Customers);
+        await _db.SaveChangesAsync();
+        return Ok(new { success = true, message = "All test orders, items, and customers have been wiped clean." });
+    }
+
     private static OrderResponseDto MapOrderResponse(Order o) => new()
     {
         OrderId = o.OrderId,
